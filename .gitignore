@@ -1,0 +1,34 @@
+# Dependencies and build output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Personal library data: never commit (privacy, Spotify terms)
+data/*
+!data/.gitkeep
+
+# Ingest caches, tokens and secrets
+.env
+.env.*
+!.env.example
+ingest/.cache/
+.cache/
+*.token.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Test output
+playwright-report/
+test-results/
+coverage/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

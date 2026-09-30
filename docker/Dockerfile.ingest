@@ -1,0 +1,13 @@
+# Crate Digger ingest: builds library.json and covers into a mounted data directory.
+#   docker compose --profile ingest run --rm ingest spotify --no-browser     (first run: interactive login)
+#   docker compose --profile ingest run --rm ingest spotify                  (later runs, e.g. from cron)
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 CRATE_CACHE_DIR=/work/cache
+WORKDIR /work
+COPY ingest/requirements.txt ingest/requirements.txt
+RUN pip install --no-cache-dir -r ingest/requirements.txt
+COPY ingest ./ingest
+RUN useradd --create-home --uid 1000 digger && mkdir -p /work/data /work/cache && chown -R digger /work
+USER digger
+ENTRYPOINT ["python", "-m", "ingest.run"]
+CMD ["--help"]

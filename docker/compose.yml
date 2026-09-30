@@ -1,0 +1,58 @@
+# Crate Digger on a VPS.
+#   cp docker/.env.example docker/.env   # then fill it in
+#   docker compose -f docker/compose.yml up -d --build
+# Library data lives in ./data on the host (gitignored) and is mounted read-only into the web container.
+name: crate-digger
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: crate-digger:latest
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:?set BASIC_AUTH_USER in docker/.env}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:?set BASIC_AUTH_HASH in docker/.env (caddy hash-password)}
+    volumes:
+      - ../data:/srv/data:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+
+  # One-shot ingest: `docker compose -f docker/compose.yml --profile ingest run --rm ingest spotify`
+  ingest:
+    profiles: ['ingest']
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ingest
+    image: crate-digger-ingest:latest
+    # Write data/ as the host user that owns it.
+    user: '${UID:-1000}:${GID:-1000}'
+    environment:
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_REDIRECT_URI: ${SPOTIFY_REDIRECT_URI:-http://127.0.0.1:8888/callback}
+      MUSICBRAINZ_CONTACT: ${MUSICBRAINZ_CONTACT:-}
+    volumes:
+      - ../data:/work/data
+      - ingest_cache:/work/cache
+    working_dir: /work
+    command: ['spotify', '--out', '/work/data', '--no-browser']
+    stdin_open: true
+    tty: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  ingest_cache:

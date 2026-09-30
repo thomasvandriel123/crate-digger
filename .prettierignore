@@ -1,0 +1,9 @@
+dist/
+data/
+node_modules/
+playwright-report/
+test-results/
+.venv/
+ingest/
+package-lock.json
+SPEC.md

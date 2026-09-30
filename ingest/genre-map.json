@@ -1,0 +1,404 @@
+{
+  "$comment": "Maps raw Spotify artist genres onto macro genres. Edit freely. 'exact' wins over 'keywords'; a raw genre may map to several macros. Keywords match whole words; a leading or trailing * allows a prefix or suffix (\"*bop\" matches \"hard bop\" and \"bebop\"). Unmatched raw genres map to 'fallback' (null drops them).",
+  "fallback": null,
+  "macros": [
+    {
+      "id": "rock",
+      "name": "Rock",
+      "keywords": [
+        "rock",
+        "shoegaze",
+        "grunge",
+        "britpop",
+        "post-punk",
+        "new wave",
+        "krautrock",
+        "psych*",
+        "garage rock",
+        "surf",
+        "madchester",
+        "slowcore",
+        "math rock",
+        "emo",
+        "stoner rock"
+      ]
+    },
+    {
+      "id": "pop",
+      "name": "Pop",
+      "keywords": [
+        "pop",
+        "chanson",
+        "schlager",
+        "levenslied",
+        "nederpop",
+        "cantopop",
+        "yacht rock",
+        "adult contemporary",
+        "singer-songwriter",
+        "sophisti*",
+        "europop",
+        "*pop"
+      ]
+    },
+    {
+      "id": "jazz",
+      "name": "Jazz",
+      "keywords": [
+        "jazz",
+        "*bop",
+        "swing",
+        "big band",
+        "bossa*",
+        "fusion",
+        "free improvisation",
+        "third stream"
+      ]
+    },
+    {
+      "id": "soul",
+      "name": "Soul & R&B",
+      "keywords": [
+        "soul",
+        "r&b",
+        "rnb",
+        "funk",
+        "motown",
+        "disco",
+        "quiet storm",
+        "gospel",
+        "doo-wop",
+        "boogie",
+        "new jack swing"
+      ]
+    },
+    {
+      "id": "hiphop",
+      "name": "Hip-Hop",
+      "keywords": [
+        "hip hop",
+        "hip-hop",
+        "rap",
+        "boom bap",
+        "trap",
+        "grime",
+        "drill",
+        "turntablism",
+        "g-funk"
+      ]
+    },
+    {
+      "id": "electronic",
+      "name": "Electronic",
+      "keywords": [
+        "electronic*",
+        "electro*",
+        "house",
+        "techno",
+        "idm",
+        "edm",
+        "trance",
+        "drum and bass",
+        "dnb",
+        "jungle",
+        "dubstep",
+        "uk garage",
+        "breakbeat",
+        "downtempo",
+        "trip hop",
+        "synth*",
+        "chillwave",
+        "vaporwave",
+        "footwork",
+        "lo-fi beats",
+        "big beat",
+        "acid"
+      ]
+    },
+    {
+      "id": "folk",
+      "name": "Folk & Country",
+      "keywords": [
+        "folk*",
+        "country",
+        "americana",
+        "bluegrass",
+        "alt-country",
+        "honky tonk",
+        "outlaw",
+        "cajun",
+        "celtic",
+        "sea shanty",
+        "appalachian",
+        "western"
+      ]
+    },
+    {
+      "id": "blues",
+      "name": "Blues",
+      "keywords": [
+        "blues",
+        "boogie-woogie",
+        "juke joint"
+      ]
+    },
+    {
+      "id": "classical",
+      "name": "Classical",
+      "keywords": [
+        "classical",
+        "baroque",
+        "romantic era",
+        "opera",
+        "orchestra*",
+        "chamber",
+        "minimalism",
+        "early music",
+        "choral",
+        "string quartet",
+        "impressionism",
+        "neoclassical",
+        "piano solo"
+      ]
+    },
+    {
+      "id": "reggae",
+      "name": "Reggae & Dub",
+      "keywords": [
+        "reggae",
+        "dub",
+        "ska",
+        "rocksteady",
+        "dancehall",
+        "lovers rock"
+      ]
+    },
+    {
+      "id": "latin",
+      "name": "Latin",
+      "keywords": [
+        "latin",
+        "salsa",
+        "cumbia",
+        "samba",
+        "tropicalia",
+        "mpb",
+        "bolero",
+        "tango",
+        "reggaeton",
+        "son cubano",
+        "mambo",
+        "bachata",
+        "forro",
+        "nueva cancion"
+      ]
+    },
+    {
+      "id": "world",
+      "name": "World",
+      "keywords": [
+        "afro*",
+        "highlife",
+        "ethio*",
+        "desert blues",
+        "rai",
+        "qawwali",
+        "fado",
+        "flamenco",
+        "gamelan",
+        "enka",
+        "bollywood",
+        "mbalax",
+        "soukous",
+        "zouk",
+        "kizomba",
+        "balkan",
+        "klezmer",
+        "anatolian",
+        "world"
+      ]
+    },
+    {
+      "id": "metal",
+      "name": "Metal",
+      "keywords": [
+        "metal",
+        "doom",
+        "sludge",
+        "thrash",
+        "grindcore",
+        "djent",
+        "*metal"
+      ]
+    },
+    {
+      "id": "punk",
+      "name": "Punk & Hardcore",
+      "keywords": [
+        "punk",
+        "hardcore",
+        "oi",
+        "riot grrrl",
+        "crust",
+        "skate punk"
+      ]
+    },
+    {
+      "id": "soundtrack",
+      "name": "Soundtrack",
+      "keywords": [
+        "soundtrack",
+        "score",
+        "library music",
+        "video game music",
+        "anime",
+        "musical",
+        "show tunes",
+        "broadway"
+      ]
+    },
+    {
+      "id": "ambient",
+      "name": "Ambient & Experimental",
+      "keywords": [
+        "ambient",
+        "experimental",
+        "drone",
+        "noise",
+        "musique concrete",
+        "avant-garde",
+        "new age",
+        "field recording",
+        "sound art",
+        "kosmische",
+        "fourth world"
+      ]
+    }
+  ],
+  "exact": {
+    "art rock": [
+      "rock",
+      "ambient"
+    ],
+    "jazz funk": [
+      "jazz",
+      "soul"
+    ],
+    "jazz rap": [
+      "hiphop",
+      "jazz"
+    ],
+    "trip hop": [
+      "electronic"
+    ],
+    "dub techno": [
+      "electronic",
+      "reggae"
+    ],
+    "folk rock": [
+      "folk",
+      "rock"
+    ],
+    "blues rock": [
+      "blues",
+      "rock"
+    ],
+    "country rock": [
+      "folk",
+      "rock"
+    ],
+    "synthpop": [
+      "pop",
+      "electronic"
+    ],
+    "synth-pop": [
+      "pop",
+      "electronic"
+    ],
+    "dream pop": [
+      "pop",
+      "rock"
+    ],
+    "art pop": [
+      "pop"
+    ],
+    "indie pop": [
+      "pop"
+    ],
+    "indie rock": [
+      "rock"
+    ],
+    "post-rock": [
+      "rock",
+      "ambient"
+    ],
+    "latin jazz": [
+      "latin",
+      "jazz"
+    ],
+    "afro-cuban jazz": [
+      "latin",
+      "jazz"
+    ],
+    "bossa nova": [
+      "latin",
+      "jazz"
+    ],
+    "city pop": [
+      "pop",
+      "world"
+    ],
+    "punk blues": [
+      "punk",
+      "blues"
+    ],
+    "neo-psychedelia": [
+      "rock"
+    ],
+    "roots reggae": [
+      "reggae"
+    ],
+    "modern classical": [
+      "classical",
+      "ambient"
+    ],
+    "hip house": [
+      "hiphop",
+      "electronic"
+    ],
+    "country blues": [
+      "blues",
+      "folk"
+    ],
+    "uk garage": [
+      "electronic"
+    ],
+    "garage rock": [
+      "rock"
+    ],
+    "stoner rock": [
+      "rock",
+      "metal"
+    ],
+    "afrobeat": [
+      "world",
+      "soul"
+    ],
+    "desert blues": [
+      "world",
+      "blues"
+    ],
+    "hip hop": [
+      "hiphop"
+    ],
+    "k-pop": [
+      "pop"
+    ],
+    "j-pop": [
+      "pop"
+    ],
+    "chamber pop": [
+      "pop"
+    ]
+  }
+}

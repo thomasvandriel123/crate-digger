@@ -1,0 +1,55 @@
+{
+	# The admin API is not needed in production. Let's Encrypt works without an account email.
+	admin off
+}
+
+# Internal health endpoint for the container healthcheck (port not published).
+:8081 {
+	respond /healthz "ok" 200
+}
+
+# SITE_ADDRESS: a domain (automatic HTTPS via Let's Encrypt) or ":80" behind a VPN / another proxy.
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	header {
+		# A personal library: keep it out of search engines and archives.
+		X-Robots-Tag "noindex, nofollow, noarchive"
+		Referrer-Policy "no-referrer"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Cross-Origin-Opener-Policy "same-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'"
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Everything is private: basic auth on every path. Generate the hash with
+	#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'your password'
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+
+	# Library data from the mounted volume. library.json revalidates on every load (ETag), so a new ingest
+	# shows up on the next visit; covers are named by album id and cached for a week.
+	handle_path /data/* {
+		root * /srv/data
+		@meta path *.json
+		header @meta Cache-Control "no-cache"
+		@covers path /covers/*
+		header @covers Cache-Control "private, max-age=604800"
+		file_server
+	}
+
+	handle {
+		root * /srv/app
+		# Content-hashed bundles never change: cache forever.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@shell path / /index.html
+		header @shell Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
