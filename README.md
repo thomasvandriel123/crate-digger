@@ -15,8 +15,15 @@ hand, a lamp-lit sideboard, and a turntable you can drop a record onto. Beauty a
 
 _Screenshots use the generated mock library (procedural covers), rendered in software GL._
 
-The viewer never talks to Spotify at runtime. A Python ingest script builds a static `library.json` plus
-optimised covers; the site is plain static files behind Caddy with basic auth. See [SPEC.md](SPEC.md) for the
+Two ways to fill the crates:
+
+- **Connect Spotify** (in the corner): log in with your own account and the room shows exactly the albums
+  saved in your library, nothing else. Put a record on the turntable and it plays in the browser tab through
+  the Spotify Web Playback SDK (Premium). Login is PKCE in the browser, so the site stays plain static files.
+- **A built library**: a Python ingest builds a static `library.json` plus optimised covers (or a generated
+  mock library to try the room without an account). Shown when no account is connected.
+
+The site is static files behind Caddy with basic auth. See [SPEC.md](SPEC.md) for the
 full design, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it is built, and
 [docs/DECISIONS.md](docs/DECISIONS.md) for interpretations, deviations and the answers to the spec's open
 questions.
@@ -29,7 +36,7 @@ Requirements: Node 22+, Python 3.11+.
 npm ci
 python3 -m venv .venv && .venv/bin/pip install -r ingest/requirements-dev.txt
 .venv/bin/python -m ingest.run mock --out data      # 300 albums with procedural covers, ~30 s
-npm run dev                                          # http://localhost:5173
+npm run dev                                          # http://127.0.0.1:5173
 ```
 
 `data/` is gitignored and served at `/data/` by the dev server, exactly as Caddy serves the mounted volume in
@@ -57,16 +64,64 @@ record all live in the URL, so any view is linkable and the back button works. S
 Useful query flags: `?motion=reduced` (or `full`) overrides the OS setting, `?renderer=fallback` shows the
 no-WebGL grid, `?crate=40` changes records per crate, `?tune` opens the tuning panel in a production build.
 
-## Your own library
+## Connect Spotify
 
 ### 1. Spotify app
 
-Create an app at <https://developer.spotify.com/dashboard> (Web API). Add the redirect URI
-`http://127.0.0.1:8888/callback` (Spotify no longer accepts `localhost`). No client secret is used: the ingest
-authenticates with PKCE. Development-mode apps require a Premium account on the owner and allow at most five
-users, which is fine for a personal library.
+Create an app at <https://developer.spotify.com/dashboard> and tick **Web API** and **Web Playback SDK**. Add
+redirect URIs for every address you open the room at, exactly (scheme, host, port, path, trailing slash):
+
+| Where                      | Redirect URI                     |
+| -------------------------- | -------------------------------- |
+| `npm run dev`              | `http://127.0.0.1:5173/`         |
+| `npm run preview`          | `http://127.0.0.1:4173/`         |
+| Your deployment            | `https://crates.example.com/`    |
+| The optional Python ingest | `http://127.0.0.1:8888/callback` |
+
+Spotify does not accept `localhost`, only the loopback IP; the dev server therefore listens on `127.0.0.1`.
+No client secret exists anywhere: login is Authorization Code with PKCE. Development-mode apps need Premium
+on the owner's account and allow at most five users; add yourself (and anyone else) under **User
+Management**.
+
+### 2. Configure the client id
+
+The client id is public and is baked into the bundle at build time:
+
+```bash
+echo 'VITE_SPOTIFY_CLIENT_ID=your-client-id' > .env.local   # dev / preview (gitignored)
+# Docker: SPOTIFY_CLIENT_ID=... in docker/.env, then `docker compose ... up -d --build`
+```
+
+A host can also supply it at runtime with `<meta name="spotify-client-id" content="...">` in `index.html`.
+Without a client id the Connect button explains what is missing.
+
+### 3. Use it
+
+**Connect Spotify** (top right, or the welcome panel when there is no library on disk) goes to Spotify's
+login, then back to the view you left. The first load reads every saved album (50 per request) and samples
+each cover's colours in the browser, with progress on the splash; later visits show the cached copy at once
+and check in the background whether you saved or removed anything. Genres arrive a moment later (one request
+per artist, cached for 30 days) and file records under the same dividers as the ingest
+(`ingest/genre-map.json`).
+
+Playing a record starts the album in this tab (a Spotify Connect device called "Crate Digger"). Pausing in the
+room pauses Spotify, and pausing from your phone or keyboard media keys lifts the tonearm in the room. Without
+Premium, or in a browser without DRM support, the turntable keeps time silently and offers **Open in
+Spotify**. The account menu (your name, top right) has **Disconnect**, which forgets the login and everything
+cached from the account on this device.
+
+What changed in Spotify's API in 2026 and how this copes is in [docs/DECISIONS.md](docs/DECISIONS.md).
+
+## A built library (ingest)
+
+Optional: for a library on disk instead of a live connection (also works without Premium, and adds
+MusicBrainz labels, which the API no longer returns). It needs the `http://127.0.0.1:8888/callback` redirect
+URI on the same Spotify app.
+
+### 1. Spotify app limits
 
 What changed in 2026 and how the ingest copes (details in [docs/DECISIONS.md](docs/DECISIONS.md)):
+
 `label` is no longer returned, so labels come from optional MusicBrainz enrichment; the batch artist endpoint
 is gone, so genres are fetched one artist at a time and cached for 90 days.
 
@@ -158,7 +213,8 @@ src/
   motion/      spring, easing, tween, focus, choreography
   scene/       sceneApp, room, bake, crate, records, dividers, hold, deck, turntable, vinyl, camera,
                materials, post, dust, textureCache, input, stats, tuning, devtools
-  playback/    adapter, simulated
+  spotify/     auth (PKCE), api, library (saved albums -> library), mapping, palette, genres, session
+  playback/    adapter, simulated, spotify (Web Playback SDK)
   audio/       sounds
   state/       store, commands, urlSync
   ui/          App, FilterBar, FilterControls, Popover, Stage, A11yList, FallbackGrid, keyboard, styles
@@ -176,17 +232,18 @@ docs/          ARCHITECTURE.md, DECISIONS.md, screenshots/
 | M1 Room and crates          | Done (procedural room, baked-look lighting, post, parallax, drift)                           |
 | M2 Browsing feel            | Done; tune the feel on your own hardware with the tuning panel                               |
 | M3 Filters, sort, search    | Done, except KTX2 texture loading in the viewer (ingest can produce KTX2; see DECISIONS #17) |
-| M4 Turntable                | Done with the simulated adapter and synthesised sounds                                       |
+| M4 Turntable                | Done: real playback via the Web Playback SDK, simulated clock as fallback                    |
 | M5 Real data and deploy     | Ingest, Docker and Caddy done and tested; the Spotify run itself needs your account          |
 | M6 Polish and accessibility | Done: listbox, reduced motion, phone layouts, fallback grid, adaptive resolution, perf test  |
 
-Next steps: wire `KTX2Loader` for compressed covers, a `SpotifyAdapter` (Premium, player API) behind the
-existing `PlaybackAdapter` interface, and a hand-modelled room glTF behind `buildRoom()`.
+Next steps: wire `KTX2Loader` for compressed covers, and a hand-modelled room glTF behind `buildRoom()`.
 
 ## Privacy
 
 The deployed site holds a personal library: basic auth on every path, `noindex` in both headers and markup,
-`robots.txt` disallowing everything, and `data/` kept out of git. The Spotify token cache lives in
-`ingest/.cache/` (gitignored, owner-only permissions).
+`robots.txt` disallowing everything, and `data/` kept out of git. The ingest's token cache lives in
+`ingest/.cache/` (gitignored, owner-only permissions). A connected browser keeps its Spotify token and the
+cached library in `localStorage` for this site only; the strict CSP limits scripts to this site and Spotify's
+SDK, and Disconnect deletes all of it. The browser talks only to Spotify (API, login, cover CDN, SDK).
 
 Fonts, sounds and textures: see [CREDITS.md](CREDITS.md).

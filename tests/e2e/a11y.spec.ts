@@ -1,25 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, type Page, test } from '@playwright/test';
-import { openRoom } from './helpers';
-
-const SERIOUS = ['serious', 'critical'];
-
-async function scan(page: Page) {
-  // @axe-core/playwright bundles its own playwright-core typings; the runtime object is the same page.
-  const results = await new AxeBuilder({
-    page: page as unknown as ConstructorParameters<typeof AxeBuilder>[0]['page'],
-  })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-    .analyze();
-  const serious = results.violations.filter((v) => SERIOUS.includes(v.impact ?? ''));
-  return serious.map(
-    (v) =>
-      `${v.id}: ${v.help} (${v.nodes.length}) ${v.nodes
-        .map((n) => n.target.join(' '))
-        .slice(0, 3)
-        .join(' | ')}`,
-  );
-}
+import { expect, test } from '@playwright/test';
+import { openRoom, scanA11y as scan } from './helpers';
 
 test.describe('accessibility', () => {
   test('the room has no serious axe violations', async ({ page }) => {

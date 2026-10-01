@@ -184,20 +184,23 @@ export class Deck {
     this.events.onNeedleDrop?.();
   }
 
-  private async pause(): Promise<void> {
+  /** `fromAdapter`: playback was paused elsewhere (Spotify app, media keys); only the room follows. */
+  private async pause(fromAdapter = false): Promise<void> {
+    if (this.phase !== 'playing') return;
     this.armTrack = false;
     this.setPhase('paused');
-    await this.adapter.pause();
+    if (!fromAdapter) await this.adapter.pause();
     this.events.onNeedleLift?.();
     this.spin.start(0, 2000, EASE.out);
     await this.run(this.armLift, 1, 300, EASE.out);
   }
 
-  private async resume(): Promise<void> {
+  private async resume(fromAdapter = false): Promise<void> {
+    if (this.phase !== 'paused') return;
     await this.run(this.spin, 1, 1200, EASE.in);
     await this.run(this.armLift, 0, 300, EASE.out);
     this.events.onNeedleDrop?.();
-    await this.adapter.resume();
+    if (!fromAdapter) await this.adapter.resume();
     this.armTrack = true;
     this.setPhase('playing');
   }
@@ -278,6 +281,10 @@ export class Deck {
 
   private onAdapter(s: PlaybackState): void {
     if (s.status === 'ended' && this.phase === 'playing') this.enqueue(() => this.autoReturn());
+    // Real playback can also be paused or resumed outside the room; the phase guards in pause/resume make
+    // these no-ops when the room itself started the change.
+    else if (s.status === 'paused' && this.phase === 'playing') this.enqueue(() => this.pause(true));
+    else if (s.status === 'playing' && this.phase === 'paused') this.enqueue(() => this.resume(true));
   }
 
   // --- per frame ---------------------------------------------------------------------------------------

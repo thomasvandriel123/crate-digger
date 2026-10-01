@@ -31,13 +31,15 @@ owns the animation loop, so the render loop never waits on a component re-render
 | State     | `src/state/`    | Stores shared by scene and UI; command registry (UI intents); URL sync.                                             |
 | Scene     | `src/scene/`    | Owns rendering and animation. Subscribes to the layout; writes focus/hold/deck back to stores.                      |
 | UI        | `src/ui/`       | Preact components read stores and call commands. They never touch the scene graph.                                  |
-| Playback  | `src/playback/` | `PlaybackAdapter` interface; `SimulatedAdapter` is the v1 default. The only place that would know about Spotify.    |
+| Spotify   | `src/spotify/`  | PKCE login, Web API client, saved albums -> library records, palettes and genres in the browser. No DOM rendering.  |
+| Playback  | `src/playback/` | `PlaybackAdapter` interface; `SpotifyAdapter` (Web Playback SDK) when connected, else `SimulatedAdapter`.           |
 | Audio     | `src/audio/`    | Web Audio, samples synthesised in code, off by default.                                                             |
 
 ## Data flow
 
-1. `main.ts` reads the view from the URL, renders the UI, fetches `data/library.json` and lazily imports the
-   scene chunk (three.js) in parallel.
+1. `main.ts` finishes a Spotify login if the page is the OAuth callback, reads the view from the URL, renders
+   the UI, and loads the library (the connected account's saved albums via `src/spotify/session.ts`, else
+   `data/library.json`) while lazily importing the scene chunk (three.js) in parallel.
 2. `normaliseLibrary` turns the JSON into `Album`s with filing keys (`The Beatles` files under B), colour bins
    (ten OKLCH hue sectors plus black and white), epoch dates, and capability flags (e.g. no labels → no Label
    filter).

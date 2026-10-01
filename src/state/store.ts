@@ -17,7 +17,12 @@ export interface ViewerConfig {
   crateCapacity: number;
 }
 
-export type LoadState = { status: 'loading' } | { status: 'ready' } | { status: 'error'; message: string };
+export type LoadState =
+  | { status: 'loading' }
+  | { status: 'ready' }
+  /** No library to show yet: the welcome panel offers to connect Spotify. */
+  | { status: 'welcome' }
+  | { status: 'error'; message: string };
 
 export const $load = atom<LoadState>({ status: 'loading' });
 export const $library = atom<Library | null>(null);
@@ -105,4 +110,30 @@ export const $statsVisible = atom<boolean>(false);
 export function albumById(id: string | null | undefined): Album | null {
   if (!id) return null;
   return $library.get()?.byId.get(id) ?? null;
+}
+
+/** Where the shelves come from, and the Spotify connection behind them. */
+export type SpotifyStatus =
+  'unconfigured' | 'disconnected' | 'connecting' | 'loading' | 'connected' | 'error';
+export interface SpotifyInfo {
+  status: SpotifyStatus;
+  /** Display name of the connected account, once known. */
+  user: string | null;
+  /** Loading progress for the splash, e.g. "Reading your saved albums: 150 of 412". */
+  progress: string | null;
+  /** Last error to show (login refused, session expired, ...). */
+  message: string | null;
+  /** Why real playback is unavailable (no Premium, unsupported browser), or null when it works. */
+  playbackNote: string | null;
+}
+export const $spotify = atom<SpotifyInfo>({
+  status: 'disconnected',
+  user: null,
+  progress: null,
+  message: null,
+  playbackNote: null,
+});
+
+export function patchSpotify(patch: Partial<SpotifyInfo>): void {
+  $spotify.set({ ...$spotify.get(), ...patch });
 }

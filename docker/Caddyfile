@@ -19,8 +19,10 @@
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Cross-Origin-Opener-Policy "same-origin"
-		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'"
+		# Spotify: the Web API and login (api/accounts), cover images (i.scdn.co and CDNs), and the Web
+		# Playback SDK, which runs in an iframe from sdk.scdn.co and plays DRM audio (encrypted-media).
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), encrypted-media=(self \"https://sdk.scdn.co\"), autoplay=(self \"https://sdk.scdn.co\")"
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://sdk.scdn.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com; font-src 'self'; connect-src 'self' https://api.spotify.com https://accounts.spotify.com https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com; frame-src https://sdk.scdn.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'"
 		Strict-Transport-Security "max-age=31536000"
 		-Server
 	}

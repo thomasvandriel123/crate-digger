@@ -8,6 +8,8 @@ export interface Track {
   n: number;
   title: string;
   durationMs: number;
+  /** Spotify track URI when known (live Spotify libraries), used to follow playback progress. */
+  uri?: string;
 }
 
 export interface Palette {

@@ -6,15 +6,15 @@ recorded here with its reason. Spec values marked "starting values, to be tuned"
 
 ## Answers to the spec's open questions (defaults chosen for v1)
 
-| Question                                     | v1 default                                                                      | How to change                                                                                                                                |
-| -------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Library source: saved albums or liked songs? | Saved albums.                                                                   | `ingest.run spotify --liked-tracks` also derives albums from Liked Songs (at least 3 liked tracks, or the whole album; `--liked-threshold`). |
-| Library size                                 | Tuned and tested on 300 mock albums; budgets hold for ~1,000.                   | `library.json` automatically splits `tracks` into per-album files past 1 MB gzipped.                                                         |
-| Playback                                     | Visual only: `SimulatedAdapter` runs the ritual over the album's real length.   | Implement `PlaybackAdapter` (`src/playback/adapter.ts`) with the Spotify player API; the scene does not change.                              |
-| Camera                                       | Fixed, elevated, with parallax and drift. No orbit.                             | `src/scene/camera.ts`.                                                                                                                       |
-| Access                                       | Public internet behind basic auth, `noindex` everywhere.                        | Set `SITE_ADDRESS=:80` and serve over a VPN (e.g. Tailscale) instead.                                                                        |
-| Genres                                       | 16 macro genres in `ingest/genre-map.json`, expandable to the raw micro genres. | Edit the map, then `python -m ingest.run remap` (no API calls).                                                                              |
-| Cover caching terms                          | Assumed personal, private, non-commercial use; data never committed.            | Re-check Spotify's developer terms before sharing the site with anyone.                                                                      |
+| Question                                     | v1 default                                                                        | How to change                                                                                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Library source: saved albums or liked songs? | Saved albums.                                                                     | `ingest.run spotify --liked-tracks` also derives albums from Liked Songs (at least 3 liked tracks, or the whole album; `--liked-threshold`). |
+| Library size                                 | Tuned and tested on 300 mock albums; budgets hold for ~1,000.                     | `library.json` automatically splits `tracks` into per-album files past 1 MB gzipped.                                                         |
+| Playback                                     | Real audio via the Web Playback SDK when connected; `SimulatedAdapter` otherwise. | `src/playback/spotify.ts`; both implement `PlaybackAdapter`, the scene does not change.                                                      |
+| Camera                                       | Fixed, elevated, with parallax and drift. No orbit.                               | `src/scene/camera.ts`.                                                                                                                       |
+| Access                                       | Public internet behind basic auth, `noindex` everywhere.                          | Set `SITE_ADDRESS=:80` and serve over a VPN (e.g. Tailscale) instead.                                                                        |
+| Genres                                       | 16 macro genres in `ingest/genre-map.json`, expandable to the raw micro genres.   | Edit the map, then `python -m ingest.run remap` (no API calls).                                                                              |
+| Cover caching terms                          | Assumed personal, private, non-commercial use; data never committed.              | Re-check Spotify's developer terms before sharing the site with anyone.                                                                      |
 
 ## Spotify API, as of September 2026
 
@@ -27,6 +27,36 @@ Spotify's February 2026 development-mode changes (applied to existing apps on 9 
 - Development-mode apps need the owner to have Premium and allow at most 5 users.
 - Redirect URIs must use a loopback IP (`http://127.0.0.1:8888/callback`), not `localhost`.
 - Every field access in the ingest tolerates absence; a missing field degrades a feature, never the run.
+
+## Connect Spotify (live library)
+
+1. **Browser-only PKCE, no backend.** The site stays static files; there is no client secret to protect. The
+   token lives in `localStorage` (refreshed automatically, single-flight). That is acceptable for a private
+   site behind basic auth with a CSP that only allows this origin's and Spotify's SDK scripts; a backend
+   holding the refresh token in an httpOnly cookie would be the step up for a shared site.
+2. **Exactly one collection on the shelves.** Connected: the account's saved albums and nothing else (the
+   library on disk is not merged in). Not connected: `library.json`. Neither: a welcome panel. Logging in
+   clears any library cached from a previous account.
+3. **Same schema, same viewer.** Saved albums are mapped to `library.json` records (`src/spotify/mapping.ts`)
+   and go through the same `normaliseLibrary`, so filters, sort, crates and the scene need no Spotify code.
+   Cover palettes are computed in the browser with the ingest's method (OKLab k-means, chroma-weighted) from
+   Spotify's 64 px image; genres use the ingest's `genre-map.json` through a TypeScript port of the mapper.
+4. **Cache first, then check.** The built library is cached in `localStorage`. A visit shows it at once and
+   asks Spotify for the newest saved album and the total (one request); only if either changed does it rebuild
+   in the background, reusing known palettes. A rebuilt library is applied only when nothing is in hand or on
+   the deck, so a record never vanishes mid-play. If the cache exceeds the storage quota, track lists are
+   dropped and fetched per album when needed.
+5. **Playback in the tab.** The SDK makes the tab a Connect device; `PUT /me/player/play` with the album's
+   `context_uri` starts it. Progress is album-level (durations of earlier tracks + position in the current
+   one, matched by track URI, including relinked tracks), so the tonearm crosses the whole side. The end of
+   the album is detected as the SDK's pause at position 0 after the last track. Pauses from other devices
+   lift the arm in the room; another context starting elsewhere ends the record. Audio is unlocked with
+   `activateElement()` on the first gesture, which also satisfies autoplay policies.
+6. **Degrade, don't fail.** No Premium (`account_error`, or a 403 on play), no EME/Widevine
+   (`initialization_error`) or a blocked SDK all fall back to the simulated clock with a note in Now
+   Playing and an **Open in Spotify** link. Genres failing never blocks the room.
+7. **Loopback host.** Spotify rejects `localhost` redirect URIs, so dev and preview servers listen on
+   `127.0.0.1`, and Connect on a `localhost` page explains where to go instead of failing at Spotify.
 
 ## Scene and motion
 

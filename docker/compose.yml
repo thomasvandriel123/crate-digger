@@ -9,6 +9,9 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      args:
+        # Enables "Connect Spotify" in the viewer (the same public client id the ingest uses).
+        VITE_SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
     image: crate-digger:latest
     restart: unless-stopped
     ports:

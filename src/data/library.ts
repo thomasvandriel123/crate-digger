@@ -57,7 +57,10 @@ function parseTracks(v: unknown): Track[] | null {
   v.forEach((t, i) => {
     if (!t || typeof t !== 'object') return;
     const o = t as Json;
-    tracks.push({ n: num(o.n) ?? i + 1, title: str(o.title) ?? 'Untitled', durationMs: num(o.durationMs) ?? 0 });
+    const track: Track = { n: num(o.n) ?? i + 1, title: str(o.title) ?? 'Untitled', durationMs: num(o.durationMs) ?? 0 };
+    const uri = str(o.uri);
+    if (uri) track.uri = uri;
+    tracks.push(track);
   });
   return tracks.length > 0 ? tracks : null;
 }

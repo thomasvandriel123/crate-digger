@@ -148,15 +148,15 @@ export class CoverTextureCache {
     const tex = new Texture(bitmap as unknown as HTMLImageElement);
     tex.colorSpace = SRGBColorSpace;
     tex.flipY = false;
-    const pot = isPowerOfTwo(bitmap.width) && isPowerOfTwo(bitmap.height);
-    tex.generateMipmaps = pot;
-    tex.minFilter = pot ? LinearMipmapLinearFilter : LinearFilter;
+    // WebGL2 mipmaps any size, so Spotify's 640 px covers filter as well as the 512 px ingest ones.
+    tex.generateMipmaps = true;
+    tex.minFilter = LinearMipmapLinearFilter;
     tex.magFilter = LinearFilter;
     tex.anisotropy = this.opts.anisotropy;
     tex.needsUpdate = true;
     this.renderer.initTexture(tex);
     // Measure before closing: a closed ImageBitmap reports 0 x 0.
-    e.bytes = bitmap.width * bitmap.height * 4 * (pot ? 4 / 3 : 1);
+    e.bytes = (bitmap.width * bitmap.height * 4 * 4) / 3;
     this.bytes += e.bytes;
     // The GPU has the pixels now; free the decoded copy. Context loss rebuilds from the HTTP cache.
     bitmap.close();
@@ -205,8 +205,4 @@ export class CoverTextureCache {
   dispose(): void {
     this.reset();
   }
-}
-
-function isPowerOfTwo(n: number): boolean {
-  return (n & (n - 1)) === 0 && n > 0;
 }

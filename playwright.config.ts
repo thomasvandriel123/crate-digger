@@ -15,7 +15,7 @@ export default defineConfig({
   workers: 1,
   reporter: CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: 'http://127.0.0.1:4173',
     viewport: { width: 1440, height: 900 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -30,7 +30,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'npm run preview',
-    url: 'http://localhost:4173',
+    url: 'http://127.0.0.1:4173',
     reuseExistingServer: !CI,
     timeout: 60_000,
   },

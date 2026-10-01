@@ -15,14 +15,17 @@ import {
   $held,
   $hover,
   $layout,
+  $library,
   $playback,
   $sound,
+  $spotify,
   $stats,
   $statsVisible,
   albumById,
 } from '../state/store';
 import { clearFilters } from './actions';
 import { Back, Eject, Flip, Pause, Play, SpeakerOff, SpeakerOn } from './icons';
+import { openInSpotifyUrl, SpotifyCorner } from './Spotify';
 
 // --- caption -------------------------------------------------------------------------------------------
 
@@ -116,6 +119,8 @@ export function LowerThird() {
 export function NowPlaying() {
   const deck = useStore($deck);
   const playback = useStore($playback);
+  const library = useStore($library);
+  const spotify = useStore($spotify);
   const album = albumById(deck.albumId);
   if (deck.phase === 'empty' || !album) return null;
   const busy = deck.phase === 'loading' || deck.phase === 'unloading';
@@ -129,6 +134,8 @@ export function NowPlaying() {
           : deck.phase === 'unloading'
             ? 'Putting away'
             : 'Now playing';
+  const fromSpotify = library?.source === 'spotify';
+  const realPlayback = fromSpotify && !spotify.playbackNote;
   const duration = playback.durationMs || album.durationMs || 0;
   const position = deck.phase === 'ended' ? duration : playback.positionMs;
   const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
@@ -169,10 +176,18 @@ export function NowPlaying() {
           <Eject /> Put away
         </button>
       </div>
-      <p class="sr-only">
-        Playback is simulated in this version: the turntable runs for the album's length without audio from
-        Spotify.
-      </p>
+      {realPlayback ? null : (
+        <p class={fromSpotify ? 'np-note' : 'sr-only'}>
+          {fromSpotify
+            ? `${spotify.playbackNote ?? 'No sound in this tab.'} `
+            : "Playback is simulated: the turntable runs for the album's length without audio. "}
+          {fromSpotify ? (
+            <a href={openInSpotifyUrl(album.id)} target="_blank" rel="noopener noreferrer">
+              Open in Spotify
+            </a>
+          ) : null}
+        </p>
+      )}
     </section>
   );
 }
@@ -183,6 +198,7 @@ export function Corner() {
   const sound = useStore($sound);
   return (
     <div class="corner">
+      <SpotifyCorner />
       <button
         type="button"
         class="icon-button"

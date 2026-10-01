@@ -10,6 +10,11 @@ RUN npm ci --no-audit --no-fund
 COPY index.html vite.config.ts tsconfig.json ./
 COPY public ./public
 COPY src ./src
+# The viewer files albums under the same genre map as the ingest.
+COPY ingest/genre-map.json ./ingest/genre-map.json
+# Public Spotify app id for "Connect Spotify" (PKCE: no secret). Empty disables the button.
+ARG VITE_SPOTIFY_CLIENT_ID=""
+ENV VITE_SPOTIFY_CLIENT_ID=$VITE_SPOTIFY_CLIENT_ID
 RUN npx vite build
 
 FROM caddy:2-alpine

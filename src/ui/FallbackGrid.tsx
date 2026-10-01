@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { formatDuration } from '../data/format';
 import type { Album, Track } from '../data/types';
 import { $focus, $layout, $library } from '../state/store';
+import { openInSpotifyUrl } from './Spotify';
 
 /**
  * Without WebGL2 the library is still browsable: a plain cover grid with the same filters, sort and
@@ -136,6 +137,11 @@ function Detail({
               ))}
             </ol>
           ) : null}
+          {$library.get()?.source === 'spotify' ? (
+            <a class="action" href={openInSpotifyUrl(album.id)} target="_blank" rel="noopener noreferrer">
+              Open in Spotify
+            </a>
+          ) : null}{' '}
           <button ref={close} type="button" class="action" onClick={onClose}>
             Close
           </button>

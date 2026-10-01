@@ -5,6 +5,7 @@ import { A11yList } from './A11yList';
 import { FallbackGrid } from './FallbackGrid';
 import { FilterBar, MobileFilters } from './FilterBar';
 import { Corner, EmptyActions, LowerThird, NowPlaying, StatsOverlay } from './Stage';
+import { Welcome } from './Spotify';
 
 interface Props {
   dataUrl: string;
@@ -14,6 +15,8 @@ interface Props {
 export function App({ dataUrl, loadTracks }: Props) {
   const load = useStore($load);
   const renderer = useStore($renderer);
+
+  if (load.status === 'welcome') return <Welcome />;
 
   if (load.status === 'error') {
     return (
@@ -26,8 +29,13 @@ export function App({ dataUrl, loadTracks }: Props) {
             <code>python3 -m ingest.run mock --out data</code>
           </p>
           <p>
-            For your own Spotify library, see <code>README.md</code> (Ingest).
+            Or connect your Spotify account (see <code>README.md</code>, Connect Spotify).
           </p>
+          <div class="welcome-actions">
+            <button type="button" class="action" onClick={() => location.reload()}>
+              Try again
+            </button>
+          </div>
         </div>
       </div>
     );

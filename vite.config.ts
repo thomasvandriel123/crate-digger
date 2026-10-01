@@ -55,6 +55,7 @@ export default defineConfig({
     // three.js alone is ~500 KB minified; the real budget is enforced gzipped by scripts/check-bundle-size.mjs.
     chunkSizeWarningLimit: 800,
   },
-  server: { port: 5173 },
+  // 127.0.0.1, not localhost: Spotify only accepts loopback IP literals as plain-http redirect URIs.
+  server: { host: '127.0.0.1', port: 5173 },
   preview: { port: 4173 },
 });

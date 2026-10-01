@@ -14,9 +14,29 @@ import './ui/styles.css';
 import { h, render } from 'preact';
 import { SoundBoard } from './audio/sounds';
 import { LibraryError, normaliseLibrary } from './data/library';
-import type { Album, Track } from './data/types';
+import type { Album, Library, Track } from './data/types';
+import type { PlaybackAdapter } from './playback/adapter';
 import { SimulatedAdapter } from './playback/simulated';
-import { $config, $library, $load, $reducedMotion, $renderer, $sound, $statsVisible } from './state/store';
+import type { SpotifyAdapter } from './playback/spotify';
+import {
+  createSpotifyAdapter,
+  EmptySpotifyLibrary,
+  handleSpotifyCallback,
+  initSpotify,
+  loadSpotifyLibrary,
+  spotifyConnected,
+  spotifyTracks,
+} from './spotify/session';
+import {
+  $config,
+  $library,
+  $load,
+  $reducedMotion,
+  $renderer,
+  $sound,
+  $spotify,
+  $statsVisible,
+} from './state/store';
 import { readInitialView, startUrlSync } from './state/urlSync';
 import { initSearchDebounce } from './ui/actions';
 import { App } from './ui/App';
@@ -60,13 +80,16 @@ motionQuery.addEventListener('change', syncMotion);
 const trackCache = new Map<string, Promise<Track[] | null>>();
 function loadTracks(album: Album): Promise<Track[] | null> {
   if (album.tracks) return Promise.resolve(album.tracks);
-  if (!album.tracksRef) return Promise.resolve(null);
+  const fromSpotify = $library.get()?.source === 'spotify';
+  if (!album.tracksRef && !fromSpotify) return Promise.resolve(null);
   let p = trackCache.get(album.id);
   if (!p) {
-    p = fetch(new URL(album.tracksRef, dataUrl))
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => (Array.isArray(json) ? (json as Track[]) : null))
-      .catch(() => null);
+    p = album.tracksRef
+      ? fetch(new URL(album.tracksRef, dataUrl))
+          .then((r) => (r.ok ? r.json() : null))
+          .then((json) => (Array.isArray(json) ? (json as Track[]) : null))
+          .catch(() => null)
+      : spotifyTracks(album);
     trackCache.set(album.id, p);
   }
   return p;
@@ -74,7 +97,7 @@ function loadTracks(album: Album): Promise<Track[] | null> {
 
 // --- boot ----------------------------------------------------------------------------------------------
 
-const initialFocus = readInitialView();
+const spotifyConfigured = initSpotify();
 initSearchDebounce();
 installKeyboard();
 
@@ -87,29 +110,63 @@ const hideSplash = () => {
   setTimeout(() => splash?.remove(), 700);
 };
 
-async function loadLibrary(): Promise<void> {
+/** library.json from the data folder; null when there is none (a fresh install that uses Spotify). */
+async function loadFileLibrary(): Promise<Library | null> {
+  // no-cache: revalidate (ETag) on every visit, so a fresh ingest shows up without a rebuild.
+  const libRes = await fetch(new URL('library.json', dataUrl), { cache: 'no-cache' });
+  if (libRes.status === 404 && spotifyConfigured) return null;
+  if (!libRes.ok) throw new LibraryError(`Could not load library.json (HTTP ${libRes.status}).`);
+  const library = normaliseLibrary(await libRes.json());
+  if (library.albums.length === 0) {
+    if (spotifyConfigured) return null;
+    throw new LibraryError('library.json has no albums yet.');
+  }
+  return library;
+}
+
+/**
+ * The shelves hold exactly one collection: the connected Spotify account's saved albums, or, when no
+ * account is connected, the library.json built by the ingest. With neither, the welcome panel offers to
+ * connect.
+ */
+async function loadLibrary(): Promise<boolean> {
   try {
-    // no-cache: revalidate (ETag) on every visit, so a fresh ingest shows up without a rebuild.
-    const libRes = await fetch(new URL('library.json', dataUrl), { cache: 'no-cache' });
-    if (!libRes.ok) throw new LibraryError(`Could not load library.json (HTTP ${libRes.status}).`);
-    const library = normaliseLibrary(await libRes.json());
-    if (library.albums.length === 0) throw new LibraryError('library.json has no albums yet.');
+    const library = spotifyConnected() ? await loadSpotifyLibrary() : await loadFileLibrary();
+    if (!library) {
+      $load.set({ status: 'welcome' });
+      hideSplash();
+      return false;
+    }
     const crateParam = Number(params.get('crate'));
     const capacity = Number.isInteger(crateParam) && crateParam > 0 ? crateParam : library.crateCapacity;
     if (capacity) $config.set({ crateCapacity: Math.min(120, Math.max(8, capacity)) });
     $library.set(library);
     $load.set({ status: 'ready' });
+    return true;
   } catch (err) {
+    // Nothing saved yet, or the Spotify session ended (the panel says why): the welcome panel offers a way on.
+    if (err instanceof EmptySpotifyLibrary || (spotifyConfigured && !spotifyConnected())) {
+      $load.set({ status: 'welcome' });
+      hideSplash();
+      return false;
+    }
     const message =
       err instanceof LibraryError ? err.message : `Could not read the library: ${(err as Error).message}`;
     $load.set({ status: 'error', message });
     hideSplash();
-    throw err;
+    return false;
   }
 }
 
 async function start(): Promise<void> {
-  const libraryReady = loadLibrary();
+  // Back from Spotify's login page: finish the login before reading the view from the address bar.
+  await handleSpotifyCallback();
+  const initialFocus = readInitialView();
+  const splashText = splash?.querySelector('p');
+  const stopProgress = $spotify.subscribe((s) => {
+    if (splashText && s.progress) splashText.textContent = s.progress;
+  });
+  const libraryReady = loadLibrary().finally(stopProgress);
   const { supportsWebGL2, SceneApp } = await import('./scene/sceneApp');
   const useWebGL = params.get('renderer') !== 'fallback' && supportsWebGL2();
   const sounds = new SoundBoard(new URL('./', document.baseURI).toString());
@@ -117,18 +174,16 @@ async function start(): Promise<void> {
     sounds.setEnabled(on);
     writePref('crate-digger:sound', on ? 'on' : 'off');
   });
-  // Audio needs a user gesture before it can start.
+  let spotifyAdapter: SpotifyAdapter | null = null;
+  // Audio needs a user gesture before it can start: room sounds, and the Spotify player in this tab.
   const unlock = () => {
     if ($sound.get()) void sounds.unlock();
+    spotifyAdapter?.activate();
   };
-  window.addEventListener('pointerdown', unlock, { once: true, capture: true });
-  window.addEventListener('keydown', unlock, { once: true, capture: true });
+  window.addEventListener('pointerdown', unlock, { capture: true });
+  window.addEventListener('keydown', unlock, { capture: true });
 
-  try {
-    await libraryReady;
-  } catch {
-    return;
-  }
+  if (!(await libraryReady)) return;
 
   if (!useWebGL) {
     $renderer.set('fallback');
@@ -138,8 +193,15 @@ async function start(): Promise<void> {
   }
 
   const library = $library.get()!;
-  const byUri = new Map(library.albums.map((a) => [a.uri, a]));
-  const adapter = new SimulatedAdapter((uri) => byUri.get(uri)?.durationMs ?? null);
+  const byUri = () => new Map(($library.get() ?? library).albums.map((a) => [a.uri, a]));
+  const durationOf = (uri: string) => byUri().get(uri)?.durationMs ?? null;
+  const tracksOf = async (uri: string) => {
+    const album = byUri().get(uri);
+    return album ? loadTracks(album) : null;
+  };
+  // Real playback for a connected account; the honest simulated clock otherwise.
+  spotifyAdapter = library.source === 'spotify' ? createSpotifyAdapter(tracksOf, durationOf) : null;
+  const adapter: PlaybackAdapter = spotifyAdapter ?? new SimulatedAdapter(durationOf);
   const canvas = document.getElementById('scene') as HTMLCanvasElement;
   let app: InstanceType<typeof SceneApp>;
   try {
