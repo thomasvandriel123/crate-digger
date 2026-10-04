@@ -152,6 +152,52 @@ export function sleeveBackCanvas(album: Album, tracks: Track[] | null, size = 10
   return canvas;
 }
 
+/** Muted inks for generated fronts: printed on board, never neon. */
+const PLAIN_INKS = ['#9a4a38', '#3d6178', '#707848', '#a8823a', '#5f4a78', '#3b7364', '#8a3c50', '#4d5560'];
+
+/**
+ * Front of a sleeve whose artwork is unknown (an uploaded export before, or without, a Cover Art Archive
+ * match): a plain "private press" design, coloured by album, so a crate of them still reads as records.
+ */
+export function plainSleeveCanvas(album: Album, size = 512): Canvas {
+  const canvas = makeCanvas(size, size);
+  const ctx = ctx2d(canvas);
+  const rand = mulberry32(hashString(album.id));
+  const ink = PLAIN_INKS[Math.floor(rand() * PLAIN_INKS.length)]!;
+  ctx.fillStyle = ink;
+  ctx.fillRect(0, 0, size, size);
+  // Board texture and a printed ring, like a generic company sleeve.
+  for (let i = 0; i < 500; i++) {
+    ctx.fillStyle = `rgba(255, 245, 225, ${rand() * 0.035})`;
+    ctx.fillRect(rand() * size, rand() * size, 1 + rand() * 2, 1);
+  }
+  ctx.strokeStyle = 'rgba(239, 227, 207, 0.22)';
+  ctx.lineWidth = size * 0.012;
+  ctx.beginPath();
+  ctx.arc(size * (0.62 + rand() * 0.1), size * (0.66 + rand() * 0.08), size * 0.2, 0, Math.PI * 2);
+  ctx.stroke();
+
+  const m = size * 0.09;
+  const inner = size - 2 * m;
+  ctx.fillStyle = '#efe3cf';
+  ctx.textAlign = 'left';
+  // Type at the top: in the crate, divider tabs and the records in front hide the lower half.
+  const ts = fitFont(ctx, album.title, SERIF, 600, size * 0.11, inner, 26);
+  const lines = wrap(ctx, album.title, inner).slice(0, 3);
+  let y = m + ts * 0.85;
+  ctx.font = `600 ${ts}px ${SERIF}`;
+  for (const l of lines) {
+    ctx.fillText(l, m, y);
+    y += ts * 1.05;
+  }
+  ctx.font = `500 ${size * 0.045}px ${SANS}`;
+  ctx.fillStyle = 'rgba(239, 227, 207, 0.85)';
+  let artist = album.artist.toUpperCase();
+  while (ctx.measureText(artist).width > inner && artist.length > 3) artist = `${artist.slice(0, -2)}…`;
+  ctx.fillText(artist, m, y + size * 0.03);
+  return canvas;
+}
+
 /** Vinyl label: a flat disc in the cover's dominant colour, artist and title set small in a circle. */
 export function labelCanvas(album: Album, size = 512): Canvas {
   const canvas = makeCanvas(size, size);

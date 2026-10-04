@@ -5,7 +5,7 @@ import { A11yList } from './A11yList';
 import { FallbackGrid } from './FallbackGrid';
 import { FilterBar, MobileFilters } from './FilterBar';
 import { Corner, EmptyActions, LowerThird, NowPlaying, StatsOverlay } from './Stage';
-import { Welcome } from './Spotify';
+import { BringDialog, Welcome } from './Spotify';
 
 interface Props {
   dataUrl: string;
@@ -57,6 +57,7 @@ export function App({ dataUrl, loadTracks }: Props) {
         </>
       )}
       <Corner />
+      <BringDialog />
     </>
   );
 }

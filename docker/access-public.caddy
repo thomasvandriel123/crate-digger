@@ -1,0 +1,9 @@
+# Public site: no login; anyone can explore the demo crates and bring their own records. Search engines
+# may index the landing page (the static robots.txt in the bundle, which disallows everything, is replaced).
+handle /robots.txt {
+	header Content-Type "text/plain; charset=utf-8"
+	respond "User-agent: *
+Allow: /
+Disallow: /data/
+" 200
+}

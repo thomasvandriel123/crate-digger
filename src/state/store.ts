@@ -137,3 +137,24 @@ export const $spotify = atom<SpotifyInfo>({
 export function patchSpotify(patch: Partial<SpotifyInfo>): void {
   $spotify.set({ ...$spotify.get(), ...patch });
 }
+
+/** A library uploaded from Spotify's data export, and the background lookup of its covers and years. */
+export interface ExportInfo {
+  status: 'none' | 'running' | 'paused' | 'done' | 'offline';
+  done: number;
+  total: number;
+  found: number;
+  remaining: number;
+  importedAt: string | null;
+}
+export const $export = atom<ExportInfo>({
+  status: 'none',
+  done: 0,
+  total: 0,
+  found: 0,
+  remaining: 0,
+  importedAt: null,
+});
+
+/** The "bring your records" dialog. */
+export const $bringOpen = atom<boolean>(false);

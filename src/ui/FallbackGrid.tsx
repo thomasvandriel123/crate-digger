@@ -59,14 +59,20 @@ export function FallbackGrid({
                     setOpen(a);
                   }}
                 >
-                  <img
-                    class="art"
-                    src={new URL(a.cover.thumb, dataUrl).toString()}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    style={{ background: a.palette.dominant }}
-                  />
+                  {a.cover.thumb.startsWith('generated:') ? (
+                    <span class="art plain-art" aria-hidden="true">
+                      {a.title}
+                    </span>
+                  ) : (
+                    <img
+                      class="art"
+                      src={new URL(a.cover.thumb, dataUrl).toString()}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      style={{ background: a.palette.dominant }}
+                    />
+                  )}
                   <span class="t">{a.title}</span>
                   <span class="a">
                     {a.artist}
@@ -114,7 +120,13 @@ function Detail({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div class="panel">
-        <img src={new URL(album.cover.web, dataUrl).toString()} alt={`Cover of ${album.title}`} />
+        {album.cover.web.startsWith('generated:') ? (
+          <span class="art plain-art" aria-hidden="true">
+            {album.title}
+          </span>
+        ) : (
+          <img src={new URL(album.cover.web, dataUrl).toString()} alt={`Cover of ${album.title}`} />
+        )}
         <div>
           <p class="caption" style={{ display: 'block', minHeight: 0 }}>
             <span class="artist" style={{ display: 'block' }}>
@@ -137,8 +149,8 @@ function Detail({
               ))}
             </ol>
           ) : null}
-          {$library.get()?.source === 'spotify' ? (
-            <a class="action" href={openInSpotifyUrl(album.id)} target="_blank" rel="noopener noreferrer">
+          {$library.get()?.source === 'spotify' || $library.get()?.source === 'export' ? (
+            <a class="action" href={openInSpotifyUrl(album.uri)} target="_blank" rel="noopener noreferrer">
               Open in Spotify
             </a>
           ) : null}{' '}

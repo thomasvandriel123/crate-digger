@@ -225,6 +225,12 @@ export class SceneApp {
         if (layout) this.applyLayout(layout);
       }),
       $statsVisible.subscribe(() => (this.wantFrame = true)),
+      // Same albums with new facts (covers, palettes found in the background) without a re-shelve.
+      $library.listen((library) => {
+        if (!library) return;
+        this.records.setAlbums(library.albums);
+        this.wantFrame = true;
+      }),
     );
     this.registerCommands();
     document.fonts?.ready.then(() => {

@@ -6,13 +6,18 @@
 import { normaliseLibrary } from '../data/library';
 import type { Album, Library, Track } from '../data/types';
 import { SpotifyAdapter } from '../playback/spotify';
+import { browserStorage as storage } from '../state/storage';
 import { $deck, $held, $library, patchSpotify } from '../state/store';
-import { SpotifyApi } from './api';
+import { SpotifyApi, SpotifyApiError } from './api';
 import { configuredClientId, currentRedirectUri, SpotifyAuth, SpotifyAuthError } from './auth';
 import { genreMap } from './genres';
 import { type Progress, type RawLibrary, SpotifyLibraryLoader } from './library';
 import { mapTracks } from './mapping';
 import { paletteFromUrl } from './palette';
+
+/** Shown to accounts the Spotify app has not allowlisted (Spotify caps development apps at five users). */
+export const NOT_INVITED =
+  'The live Spotify connection is invite-only for now: Spotify lets this app serve only five accounts. Upload your Spotify library export instead, it works for everyone.';
 
 /** Thrown when the account has no saved albums: not an error, but nothing to shelve either. */
 export class EmptySpotifyLibrary extends Error {}
@@ -20,19 +25,6 @@ export class EmptySpotifyLibrary extends Error {}
 let auth: SpotifyAuth | null = null;
 let api: SpotifyApi | null = null;
 let loader: SpotifyLibraryLoader | null = null;
-
-function storage(kind: 'local' | 'session'): Storage | Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
-  try {
-    return kind === 'local' ? localStorage : sessionStorage;
-  } catch {
-    const mem = new Map<string, string>();
-    return {
-      getItem: (k) => mem.get(k) ?? null,
-      setItem: (k, v) => void mem.set(k, v),
-      removeItem: (k) => void mem.delete(k),
-    };
-  }
-}
 
 /** Set up from the configured client id. Returns false when Spotify is not configured for this build. */
 export function initSpotify(clientId = configuredClientId()): boolean {
@@ -186,7 +178,13 @@ export async function loadSpotifyLibrary(): Promise<Library> {
     patchSpotify({ status: 'connected', progress: null, message: null });
     return normaliseLibrary(raw);
   } catch (err) {
-    if (err instanceof SpotifyAuthError) {
+    if (err instanceof SpotifyApiError && err.status === 403) {
+      // Development-mode Spotify apps only serve the (at most five) accounts added in the dashboard.
+      auth?.logout();
+      loader.clear();
+      patchSpotify({ status: 'disconnected', progress: null, message: NOT_INVITED });
+      throw new SpotifyAuthError(NOT_INVITED);
+    } else if (err instanceof SpotifyAuthError) {
       auth?.logout();
       loader.clear();
       patchSpotify({ status: 'disconnected', progress: null, message: err.message });

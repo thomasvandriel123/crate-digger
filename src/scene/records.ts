@@ -79,12 +79,21 @@ export class RecordEntity {
   readonly wear: Vector3;
   readonly wearAmount: number;
 
-  constructor(readonly album: Album) {
+  constructor(public album: Album) {
     this.dominant = new Color(album.palette.dominant);
     const rand = mulberry32(hashString(album.id));
     // Some records look slightly loved, none look dirty: wear is seeded per album, at most 8% opacity.
     this.wearAmount = rand() < 0.6 ? 0.35 + rand() * 0.65 : 0;
     this.wear = new Vector3(0.5 + (rand() - 0.5) * 0.08, 0.5 + (rand() - 0.5) * 0.08, 0.4 + rand() * 0.06);
+  }
+
+  /** New facts about the same album (a cover or palette found later). True when the cover changed. */
+  update(album: Album): boolean {
+    const coverChanged =
+      album.cover.web !== this.album.cover.web || album.cover.thumb !== this.album.cover.thumb;
+    this.album = album;
+    this.dominant.set(album.palette.dominant);
+    return coverChanged;
   }
 
   get inCrate(): boolean {
@@ -189,7 +198,9 @@ export class RecordSystem {
 
   setAlbums(albums: readonly Album[]): void {
     for (const album of albums) {
-      if (!this.entities.has(album.id)) this.entities.set(album.id, new RecordEntity(album));
+      const e = this.entities.get(album.id);
+      if (!e) this.entities.set(album.id, new RecordEntity(album));
+      else if (e.album !== album && e.update(album)) this.covers.invalidate(album.id);
     }
   }
 

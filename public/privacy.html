@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Privacy · Crate Digger</title>
+    <style>
+      :root {
+        --bg: #140e0b;
+        --paper: #efe3cf;
+        --dim: rgba(239, 227, 207, 0.78);
+        --accent: #ffb266;
+      }
+      html,
+      body {
+        background: var(--bg);
+        color: var(--paper);
+        margin: 0;
+      }
+      body {
+        font:
+          16px/1.6 system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+      }
+      main {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 40px 16px 64px;
+      }
+      h1,
+      h2 {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-weight: 600;
+      }
+      h1 {
+        font-size: 30px;
+        margin: 0 0 8px;
+      }
+      h2 {
+        font-size: 20px;
+        margin: 32px 0 8px;
+      }
+      p,
+      li {
+        color: var(--dim);
+      }
+      a {
+        color: var(--accent);
+      }
+      .back {
+        display: inline-block;
+        margin-bottom: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back" href="./">← Back to the crates</a>
+      <h1>Privacy</h1>
+      <p>
+        Crate Digger is a static website. It has no accounts, no database, no cookies, no analytics and no
+        advertising. Your music library stays in your own browser.
+      </p>
+
+      <h2>If you upload your Spotify data export</h2>
+      <ul>
+        <li>
+          The file is read in your browser. It is never sent to this site's server or anyone else. Only the
+          list of saved albums (artist, title and Spotify link) is kept, in your browser's local storage.
+        </li>
+        <li>
+          To find covers, release years and genres, your browser asks
+          <a href="https://musicbrainz.org/doc/About/Privacy_Policy">MusicBrainz</a> about each album (artist
+          and title only) and loads cover images from the
+          <a href="https://coverartarchive.org/">Cover Art Archive</a>, which is hosted by the
+          <a href="https://archive.org/about/terms.php">Internet Archive</a>. These services see your IP
+          address, as with any website you visit.
+        </li>
+        <li>"Forget my records" in the corner menu deletes all of it from your browser.</li>
+      </ul>
+
+      <h2>If you connect Spotify</h2>
+      <ul>
+        <li>
+          You log in on Spotify's own page. This site asks for read access to your saved albums, and for
+          permission to play music in the browser tab (Spotify Premium). It never sees your password.
+        </li>
+        <li>
+          Your browser talks to Spotify directly. The access token and a copy of your saved albums are kept in
+          your browser's local storage, so the room opens quickly next time. Nothing is stored on this site's
+          server.
+        </li>
+        <li>
+          "Disconnect Spotify" deletes the token and the copy. You can also remove the app's access at any
+          time on <a href="https://www.spotify.com/account/apps/">spotify.com/account/apps</a>.
+        </li>
+      </ul>
+
+      <h2>The server</h2>
+      <p>
+        The web server sends the site's files. It does not keep access logs, and it receives nothing about
+        your library.
+      </p>
+
+      <h2>Attribution</h2>
+      <p>
+        Album data and artwork are from Spotify when you connect your account. For uploaded libraries,
+        metadata is from MusicBrainz (CC0) and cover images are from the Cover Art Archive; the images belong
+        to their respective rights holders. Crate Digger is not affiliated with or endorsed by Spotify.
+      </p>
+
+      <h2>Contact</h2>
+      <!-- Site operator: replace with your own contact details before going public. -->
+      <p id="contact">Questions about this site or your data: contact the site operator.</p>
+    </main>
+  </body>
+</html>

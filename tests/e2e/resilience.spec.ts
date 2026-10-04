@@ -34,8 +34,16 @@ test('the view survives WebGL context loss and restores', async ({ page }) => {
   await expect.poll(async () => (await snapshot(page)).drawCalls, { timeout: 10_000 }).toBeGreaterThan(10);
 });
 
-test('a missing library shows a helpful message, not a blank page', async ({ page }) => {
+test('no library on disk shows the welcome panel, not a blank page', async ({ page }) => {
   await page.route('**/data/library.json', (route) => route.fulfill({ status: 404, body: 'nope' }));
+  await page.goto('/');
+  const welcome = page.getByRole('region', { name: 'Welcome' });
+  await expect(welcome).toContainText('Bring your records');
+  await expect(welcome.getByText('Choose the zip or YourLibrary.json')).toBeVisible();
+});
+
+test('a broken library shows a helpful message, not a blank page', async ({ page }) => {
+  await page.route('**/data/library.json', (route) => route.fulfill({ status: 500, body: 'oops' }));
   await page.goto('/');
   await expect(page.getByRole('alert')).toContainText('library.json');
   await expect(page.getByRole('alert')).toContainText('ingest.run mock');

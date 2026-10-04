@@ -13,25 +13,22 @@
 	encode zstd gzip
 
 	header {
-		# A personal library: keep it out of search engines and archives.
-		X-Robots-Tag "noindex, nofollow, noarchive"
 		Referrer-Policy "no-referrer"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Cross-Origin-Opener-Policy "same-origin"
 		# Spotify: the Web API and login (api/accounts), cover images (i.scdn.co and CDNs), and the Web
 		# Playback SDK, which runs in an iframe from sdk.scdn.co and plays DRM audio (encrypted-media).
+		# Uploaded libraries: MusicBrainz lookups and Cover Art Archive images, which redirect to archive.org.
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), encrypted-media=(self \"https://sdk.scdn.co\"), autoplay=(self \"https://sdk.scdn.co\")"
-		Content-Security-Policy "default-src 'self'; script-src 'self' https://sdk.scdn.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com; font-src 'self'; connect-src 'self' https://api.spotify.com https://accounts.spotify.com https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com; frame-src https://sdk.scdn.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://sdk.scdn.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com https://coverartarchive.org https://archive.org https://*.archive.org; font-src 'self'; connect-src 'self' https://api.spotify.com https://accounts.spotify.com https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com https://musicbrainz.org https://coverartarchive.org https://archive.org https://*.archive.org; frame-src https://sdk.scdn.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'"
 		Strict-Transport-Security "max-age=31536000"
 		-Server
 	}
 
-	# Everything is private: basic auth on every path. Generate the hash with
-	#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'your password'
-	basic_auth {
-		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
-	}
+	# ACCESS=private (default): basic auth on every path, kept out of search engines.
+	# ACCESS=public: open to everyone, indexable; visitors bring their own records.
+	import /etc/caddy/access-{$ACCESS:private}.caddy
 
 	# Library data from the mounted volume. library.json revalidates on every load (ETag), so a new ingest
 	# shows up on the next visit; covers are named by album id and cached for a week.

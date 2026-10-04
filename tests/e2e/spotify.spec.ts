@@ -162,7 +162,11 @@ test.describe('Spotify connection', () => {
     await waitForRoom(page);
     await expect(page.locator('.counter')).toHaveText(/300 of 300 records/);
 
-    await page.getByRole('button', { name: 'Connect Spotify' }).click();
+    await page.getByRole('button', { name: 'Bring your records' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Bring your records' });
+    await expect(dialog).toBeVisible();
+    expect(await scanA11y(page)).toEqual([]);
+    await dialog.getByRole('button', { name: 'Connect Spotify' }).click();
     await expect.poll(() => fake.tokenRequests.length, { timeout: 30_000 }).toBe(1);
 
     const auth = fake.authorizeUrls[0]!;
@@ -236,7 +240,7 @@ test.describe('Spotify connection', () => {
     await page.getByRole('button', { name: 'Disconnect Spotify' }).click();
     await waitForRoom(page);
     await expect(page.locator('.counter')).toHaveText(/300 of 300 records/);
-    await expect(page.getByRole('button', { name: 'Connect Spotify' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Bring your records' })).toBeVisible();
     const stored = await page.evaluate(() =>
       Object.keys(localStorage).filter((k) => k.startsWith('crate-digger:spotify')),
     );
@@ -281,7 +285,28 @@ test.describe('Spotify connection', () => {
     );
   });
 
-  test('with no library on disk, the welcome panel offers to connect', async ({ page }) => {
+  test('an account the app is not allowed to serve is told why and offered the upload', async ({ page }) => {
+    const fake = await fakeSpotify(page);
+    // Development-mode apps answer 403 for accounts not added in the Spotify dashboard.
+    await page.route('https://api.spotify.com/v1/me/albums**', (route) =>
+      json(route, { error: { status: 403, message: 'User not registered in the Developer Dashboard' } }, 403),
+    );
+    await page.goto('/');
+    await waitForRoom(page);
+    await page.getByRole('button', { name: 'Bring your records' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Connect Spotify' }).click();
+    await expect.poll(() => fake.tokenRequests.length, { timeout: 30_000 }).toBe(1);
+    await waitForRoom(page);
+    // Back in the demo crates, with the reason and the upload right there.
+    await expect(page.locator('.counter')).toHaveText(/300 of 300 records/);
+    const dialog = page.getByRole('dialog', { name: 'Bring your records' });
+    await expect(dialog.getByRole('alert')).toContainText('invite-only');
+    await expect(dialog.getByText('Choose the zip or YourLibrary.json')).toBeVisible();
+    const stored = await page.evaluate(() => localStorage.getItem('crate-digger:spotify-token'));
+    expect(stored).toBeNull();
+  });
+
+  test('with no library on disk, the welcome panel offers both ways in', async ({ page }) => {
     await fakeSpotify(page);
     await page.route(`${ORIGIN}/data/library.json`, (route) =>
       route.fulfill({ status: 404, body: 'Not found' }),
@@ -290,6 +315,7 @@ test.describe('Spotify connection', () => {
     const welcome = page.getByRole('region', { name: 'Welcome' });
     await expect(welcome).toBeVisible({ timeout: 30_000 });
     await expect(welcome.getByRole('button', { name: 'Connect Spotify' })).toBeVisible();
+    await expect(welcome.getByText('Choose the zip or YourLibrary.json')).toBeVisible();
     expect(await scanA11y(page)).toEqual([]);
   });
 });

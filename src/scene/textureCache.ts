@@ -11,6 +11,10 @@
 
 import { LinearFilter, LinearMipmapLinearFilter, SRGBColorSpace, Texture, type WebGLRenderer } from 'three';
 import type { Album } from '../data/types';
+import { plainSleeveCanvas } from './sleeveArt';
+
+/** Cover paths with this prefix have no artwork: a plain sleeve is drawn instead. */
+const GENERATED = 'generated:';
 
 interface Entry {
   album: Album;
@@ -110,6 +114,12 @@ export class CoverTextureCache {
     return this.inFlight > 0 || wanted.some((e) => e.state === 'decoded');
   }
 
+  /** Drop an album's texture so its new cover (e.g. found by a background lookup) loads next frame. */
+  invalidate(albumId: string): void {
+    const e = this.entries.get(albumId);
+    if (e) this.drop(e);
+  }
+
   private url(album: Album): string {
     const path = this.opts.variant === 'thumb' ? album.cover.thumb : album.cover.web;
     return new URL(path, this.baseUrl).toString();
@@ -120,12 +130,26 @@ export class CoverTextureCache {
     this.inFlight++;
     const controller = new AbortController();
     e.controller = controller;
-    fetch(this.url(e.album), { signal: controller.signal })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.blob();
-      })
-      .then((blob) => createImageBitmap(blob, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+    const plain = () =>
+      createImageBitmap(
+        plainSleeveCanvas(e.album, this.opts.variant === 'thumb' ? 256 : 512) as HTMLCanvasElement,
+      );
+    const source = (this.opts.variant === 'thumb' ? e.album.cover.thumb : e.album.cover.web).startsWith(
+      GENERATED,
+    )
+      ? plain()
+      : fetch(this.url(e.album), { signal: controller.signal })
+          .then((r) => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.blob();
+          })
+          .then((blob) => createImageBitmap(blob, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+          // A missing or unreadable cover still gets a sleeve rather than a bare colour.
+          .catch((err: unknown) => {
+            if (controller.signal.aborted) throw err;
+            return plain();
+          });
+    source
       .then((bitmap) => {
         if (e.state !== 'loading') {
           bitmap.close();

@@ -1,0 +1,6 @@
+# Private site: a personal library behind basic auth, kept out of search engines and archives.
+# Generate the hash with: docker run --rm caddy:2-alpine caddy hash-password --plaintext 'your password'
+header X-Robots-Tag "noindex, nofollow, noarchive"
+basic_auth {
+	{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+}

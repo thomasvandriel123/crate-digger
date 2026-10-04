@@ -15,15 +15,19 @@ hand, a lamp-lit sideboard, and a turntable you can drop a record onto. Beauty a
 
 _Screenshots use the generated mock library (procedural covers), rendered in software GL._
 
-Two ways to fill the crates:
+Ways to fill the crates (**Bring your records**, top right):
 
-- **Connect Spotify** (in the corner): log in with your own account and the room shows exactly the albums
-  saved in your library, nothing else. Put a record on the turntable and it plays in the browser tab through
-  the Spotify Web Playback SDK (Premium). Login is PKCE in the browser, so the site stays plain static files.
-- **A built library**: a Python ingest builds a static `library.json` plus optimised covers (or a generated
-  mock library to try the room without an account). Shown when no account is connected.
+- **Upload your Spotify data export** (works for everyone): Spotify's "Account data" download lists your
+  saved albums. The file is read in the browser and never uploaded; the albums appear at once on plain
+  sleeves, then covers, years and genres fill in from MusicBrainz and the Cover Art Archive, looked up from
+  the visitor's browser at about one album per second and cached per album.
+- **Connect Spotify** (invite-only, up to five accounts): log in and the room shows exactly the albums saved
+  in your library, live. Records play in the browser tab through the Spotify Web Playback SDK (Premium).
+  Login is PKCE in the browser, so the site stays plain static files.
+- **A built library**: a Python ingest builds a static `library.json` plus optimised covers. On a public site
+  this slot holds the generated demo crates that visitors see first.
 
-The site is static files behind Caddy with basic auth. See [SPEC.md](SPEC.md) for the
+The site is static files behind Caddy, either public or behind basic auth. See [SPEC.md](SPEC.md) for the
 full design, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it is built, and
 [docs/DECISIONS.md](docs/DECISIONS.md) for interpretations, deviations and the answers to the spec's open
 questions.
@@ -151,14 +155,42 @@ file. Past 1 MB gzipped, track lists move into `data/tracks/<id>.json` and load 
 
 ## Deploy (Docker on a VPS)
 
+### Public site (anyone can visit)
+
+1. **Domain:** point an A (and AAAA) record for e.g. `crates.example.com` at the VPS; open ports 80 and 443.
+2. **Settings:** `cp docker/.env.example docker/.env` and set:
+
+   ```bash
+   SITE_ADDRESS=crates.example.com     # automatic HTTPS via Let's Encrypt
+   ACCESS=public                       # no login, indexable
+   SPOTIFY_CLIENT_ID=your-client-id    # optional: enables Connect Spotify for invited accounts
+   ```
+
+3. **Spotify app** (only if you set the client id): add the redirect URI `https://crates.example.com/` and,
+   under **User Management**, the (at most five) accounts you invite. Everyone else uses the upload.
+4. **Your contact details:** edit the Contact section of `public/privacy.html`; it is your privacy notice.
+5. **Demo crates** that visitors see first (generated albums and covers, no third-party artwork):
+
+   ```bash
+   docker compose -f docker/compose.yml --profile ingest run --rm ingest mock --out /work/data
+   ```
+
+6. **Start:** `docker compose -f docker/compose.yml up -d --build`, then open the domain.
+
+Nothing about visitors is stored on the server: uploads are read in the browser, Spotify and MusicBrainz are
+called from the browser, and Caddy keeps no access logs. The server load is static files only.
+
+### Private site (your own library, behind a password)
+
 ```bash
-cp docker/.env.example docker/.env          # set SITE_ADDRESS, BASIC_AUTH_USER, BASIC_AUTH_HASH
+cp docker/.env.example docker/.env          # ACCESS=private, SITE_ADDRESS, BASIC_AUTH_USER, BASIC_AUTH_HASH
 docker run --rm caddy:2-alpine caddy hash-password --plaintext 'a long passphrase'   # -> BASIC_AUTH_HASH
 docker compose -f docker/compose.yml up -d --build
 ```
 
-- Caddy serves the static bundle with automatic HTTPS, basic auth on every path, `noindex` headers, a strict
-  CSP, long-lived caching for content-hashed assets and revalidation for `library.json`.
+- Caddy serves the static bundle with automatic HTTPS, a strict CSP, long-lived caching for content-hashed
+  assets and revalidation for `library.json`; in private mode also basic auth on every path and `noindex`
+  headers (`docker/access-private.caddy` / `access-public.caddy`).
 - `data/` on the host is mounted read-only; re-running the ingest updates the site without a rebuild.
 - Ingest in a container (first run is interactive for the login; the refresh token is kept in a volume):
 
@@ -214,6 +246,7 @@ src/
   scene/       sceneApp, room, bake, crate, records, dividers, hold, deck, turntable, vinyl, camera,
                materials, post, dust, textureCache, input, stats, tuning, devtools
   spotify/     auth (PKCE), api, library (saved albums -> library), mapping, palette, genres, session
+  export/      parse (YourLibrary.json / zip), musicbrainz (queue, matching), library (cache, enrich), session
   playback/    adapter, simulated, spotify (Web Playback SDK)
   audio/       sounds
   state/       store, commands, urlSync

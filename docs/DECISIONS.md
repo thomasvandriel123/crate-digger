@@ -58,6 +58,37 @@ Spotify's February 2026 development-mode changes (applied to existing apps on 9 
 7. **Loopback host.** Spotify rejects `localhost` redirect URIs, so dev and preview servers listen on
    `127.0.0.1`, and Connect on a `localhost` page explains where to go instead of failing at Spotify.
 
+## Public site: bring your own records
+
+Spotify development-mode apps serve at most five allowlisted accounts, and since May 2025 extended access is
+only granted to registered businesses with 250k+ monthly active users. So "anyone connects their Spotify" is
+not available to a site like this one. The public site therefore offers:
+
+1. **Upload of Spotify's data export for everyone.** `YourLibrary.json` (inside the "Account data" zip) lists
+   saved albums as artist/title/URI with nothing else. It is parsed in the browser (`src/export/`, zip via
+   `fflate`, loaded on demand), stored in local storage, and never sent to the server. Without saved albums,
+   albums with 3+ liked songs make the collection, as in the Python ingest.
+2. **Enrichment from the browser, not the server.** MusicBrainz allows ~1 request/s per IP. Running the
+   lookups in each visitor's browser gives every visitor their own budget, needs no server, queue or API key,
+   and keeps the library private. One search request per album (release group, first release date, type,
+   tags); covers are Cover Art Archive URLs, sampled once for the palette (which also tells whether a cover
+   exists). Track lists and labels are looked up only for the record in hand, ahead of the queue. Results are
+   cached per album; misses are retried after 30 days. Browsers cannot set a `User-Agent`, so requests
+   identify as the browser; the pacing (1.1 s, longer back-off on 503) keeps them polite.
+3. **The room is usable at once.** Unmatched albums get a generated "private press" sleeve (title and artist
+   on a muted board colour); records refile as years and genres arrive, never while one is in hand or on the
+   deck. Covers that fail to load anywhere now fall back to the same sleeve.
+4. **Connect Spotify stays, invite-only.** A non-allowlisted account gets a 403 from the API after logging
+   in; the site signs it out, says why, and opens the upload instead.
+5. **Uploaded libraries play silently** (the simulated clock) with "Open in Spotify": playback needs a
+   Spotify login.
+6. **`ACCESS=public|private`** switches Caddy between an open, indexable site and the basic-auth one. The
+   `noindex` meta tag moved out of `index.html` into the private-mode headers.
+
+Not verified from the build environment (its network blocks these hosts): live CORS behaviour of the Cover
+Art Archive's redirect to archive.org. If covers do not load in production, records keep plain sleeves; the
+fix would be a small caching image proxy on the server.
+
 ## Scene and motion
 
 1. **The crate row slides; the room stays put.** The spec calls the crate switch a "camera truck", but a

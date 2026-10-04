@@ -134,8 +134,9 @@ export function NowPlaying() {
           : deck.phase === 'unloading'
             ? 'Putting away'
             : 'Now playing';
-  const fromSpotify = library?.source === 'spotify';
-  const realPlayback = fromSpotify && !spotify.playbackNote;
+  // Real Spotify albums (live or uploaded) can always be opened in Spotify; only a live connection plays here.
+  const fromSpotify = library?.source === 'spotify' || library?.source === 'export';
+  const realPlayback = library?.source === 'spotify' && !spotify.playbackNote;
   const duration = playback.durationMs || album.durationMs || 0;
   const position = deck.phase === 'ended' ? duration : playback.positionMs;
   const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
@@ -179,10 +180,10 @@ export function NowPlaying() {
       {realPlayback ? null : (
         <p class={fromSpotify ? 'np-note' : 'sr-only'}>
           {fromSpotify
-            ? `${spotify.playbackNote ?? 'No sound in this tab.'} `
+            ? `${library?.source === 'export' ? 'The turntable keeps time without sound for uploaded libraries.' : (spotify.playbackNote ?? 'No sound in this tab.')} `
             : "Playback is simulated: the turntable runs for the album's length without audio. "}
           {fromSpotify ? (
-            <a href={openInSpotifyUrl(album.id)} target="_blank" rel="noopener noreferrer">
+            <a href={openInSpotifyUrl(album.uri)} target="_blank" rel="noopener noreferrer">
               Open in Spotify
             </a>
           ) : null}

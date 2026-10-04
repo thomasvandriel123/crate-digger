@@ -20,8 +20,10 @@ services:
       - '443:443/udp'
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
-      BASIC_AUTH_USER: ${BASIC_AUTH_USER:?set BASIC_AUTH_USER in docker/.env}
-      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:?set BASIC_AUTH_HASH in docker/.env (caddy hash-password)}
+      # public: open to everyone (demo crates + bring your own records); private: basic auth.
+      ACCESS: ${ACCESS:-private}
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:-}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:-}
     volumes:
       - ../data:/srv/data:ro
       - caddy_data:/data

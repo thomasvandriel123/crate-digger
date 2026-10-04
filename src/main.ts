@@ -27,7 +27,9 @@ import {
   spotifyConnected,
   spotifyTracks,
 } from './spotify/session';
+import { exportTracks, loadStoredExport, startEnrichment } from './export/session';
 import {
+  $bringOpen,
   $config,
   $library,
   $load,
@@ -80,24 +82,35 @@ motionQuery.addEventListener('change', syncMotion);
 const trackCache = new Map<string, Promise<Track[] | null>>();
 function loadTracks(album: Album): Promise<Track[] | null> {
   if (album.tracks) return Promise.resolve(album.tracks);
-  const fromSpotify = $library.get()?.source === 'spotify';
-  if (!album.tracksRef && !fromSpotify) return Promise.resolve(null);
+  const source = $library.get()?.source;
+  if (!album.tracksRef && source !== 'spotify' && source !== 'export') return Promise.resolve(null);
   let p = trackCache.get(album.id);
   if (!p) {
-    p = album.tracksRef
-      ? fetch(new URL(album.tracksRef, dataUrl))
-          .then((r) => (r.ok ? r.json() : null))
-          .then((json) => (Array.isArray(json) ? (json as Track[]) : null))
-          .catch(() => null)
-      : spotifyTracks(album);
+    p = (
+      album.tracksRef
+        ? fetch(new URL(album.tracksRef, dataUrl))
+            .then((r) => (r.ok ? r.json() : null))
+            .then((json) => (Array.isArray(json) ? (json as Track[]) : null))
+            .catch(() => null)
+        : source === 'export'
+          ? exportTracks(album)
+          : spotifyTracks(album)
+    ).then((tracks) => {
+      const total = tracks?.reduce((sum, t) => sum + t.durationMs, 0);
+      if (total) trackDurations.set(album.uri, total);
+      return tracks;
+    });
     trackCache.set(album.id, p);
   }
   return p;
 }
 
+/** Album lengths learned from track lists fetched on demand (uploaded libraries have none up front). */
+const trackDurations = new Map<string, number>();
+
 // --- boot ----------------------------------------------------------------------------------------------
 
-const spotifyConfigured = initSpotify();
+initSpotify();
 initSearchDebounce();
 installKeyboard();
 
@@ -110,18 +123,32 @@ const hideSplash = () => {
   setTimeout(() => splash?.remove(), 700);
 };
 
-/** library.json from the data folder; null when there is none (a fresh install that uses Spotify). */
+/** library.json from the data folder; null when there is none (visitors bring their own records). */
 async function loadFileLibrary(): Promise<Library | null> {
   // no-cache: revalidate (ETag) on every visit, so a fresh ingest shows up without a rebuild.
   const libRes = await fetch(new URL('library.json', dataUrl), { cache: 'no-cache' });
-  if (libRes.status === 404 && spotifyConfigured) return null;
+  if (libRes.status === 404) return null;
   if (!libRes.ok) throw new LibraryError(`Could not load library.json (HTTP ${libRes.status}).`);
   const library = normaliseLibrary(await libRes.json());
-  if (library.albums.length === 0) {
-    if (spotifyConfigured) return null;
-    throw new LibraryError('library.json has no albums yet.');
+  return library.albums.length > 0 ? library : null;
+}
+
+/**
+ * Exactly one collection, in this order: the connected Spotify account's saved albums; a library uploaded
+ * from Spotify's data export; the library on disk (a built library, or the demo crates on a public site).
+ */
+async function chooseLibrary(): Promise<Library | null> {
+  if (spotifyConnected()) {
+    try {
+      return await loadSpotifyLibrary();
+    } catch (err) {
+      // Still signed in means a real failure (network, Spotify down): show it rather than other records.
+      if (err instanceof EmptySpotifyLibrary || spotifyConnected()) throw err;
+      // Signed out (session expired, or an account the app may not serve): say why, offer the export.
+      $bringOpen.set(true);
+    }
   }
-  return library;
+  return loadStoredExport() ?? (await loadFileLibrary());
 }
 
 /**
@@ -131,7 +158,7 @@ async function loadFileLibrary(): Promise<Library | null> {
  */
 async function loadLibrary(): Promise<boolean> {
   try {
-    const library = spotifyConnected() ? await loadSpotifyLibrary() : await loadFileLibrary();
+    const library = await chooseLibrary();
     if (!library) {
       $load.set({ status: 'welcome' });
       hideSplash();
@@ -144,8 +171,8 @@ async function loadLibrary(): Promise<boolean> {
     $load.set({ status: 'ready' });
     return true;
   } catch (err) {
-    // Nothing saved yet, or the Spotify session ended (the panel says why): the welcome panel offers a way on.
-    if (err instanceof EmptySpotifyLibrary || (spotifyConfigured && !spotifyConnected())) {
+    // Nothing saved yet: the welcome panel explains and offers a way on.
+    if (err instanceof EmptySpotifyLibrary) {
       $load.set({ status: 'welcome' });
       hideSplash();
       return false;
@@ -189,12 +216,13 @@ async function start(): Promise<void> {
     $renderer.set('fallback');
     startUrlSync(() => {});
     hideSplash();
+    if ($library.get()?.source === 'export') startEnrichment();
     return;
   }
 
   const library = $library.get()!;
   const byUri = () => new Map(($library.get() ?? library).albums.map((a) => [a.uri, a]));
-  const durationOf = (uri: string) => byUri().get(uri)?.durationMs ?? null;
+  const durationOf = (uri: string) => byUri().get(uri)?.durationMs ?? trackDurations.get(uri) ?? null;
   const tracksOf = async (uri: string) => {
     const album = byUri().get(uri);
     return album ? loadTracks(album) : null;
@@ -226,6 +254,8 @@ async function start(): Promise<void> {
   app.focusAlbumAfterLayout(initialFocus);
   startUrlSync((focus) => app.focusAlbumAfterLayout(focus));
   app.start();
+  // An uploaded library starts with plain sleeves; covers, years and genres fill in from here.
+  if (library.source === 'export') void app.firstFrame.then(startEnrichment);
   void app.firstFrame.then(hideSplash);
   // Fonts used only inside canvases load lazily; ask for them, then redraw generated art.
   void Promise.all(

@@ -18,7 +18,7 @@ ENV VITE_SPOTIFY_CLIENT_ID=$VITE_SPOTIFY_CLIENT_ID
 RUN npx vite build
 
 FROM caddy:2-alpine
-COPY docker/Caddyfile /etc/caddy/Caddyfile
+COPY docker/Caddyfile docker/access-private.caddy docker/access-public.caddy /etc/caddy/
 COPY --from=build /app/dist /srv/app
 RUN mkdir -p /srv/data
 EXPOSE 80 443 443/udp
